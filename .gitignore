@@ -1,0 +1,40 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+dist/
+build/
+*.egg
+.env
+venv/
+env/
+
+# Data (too large for git)
+data/real/
+data/fake/
+data/*.mp4
+data/*.avi
+
+# Checkpoints (large model files)
+checkpoints/
+
+# Logs
+logs/
+
+# Jupyter
+.ipynb_checkpoints/
+*.ipynb_checkpoints
+
+# Results (optional — keep plots, exclude large files)
+results/gradcam/*.jpg
+# Comment the above if you want to include Grad-CAM images
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+*.swp

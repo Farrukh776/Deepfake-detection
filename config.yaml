@@ -1,0 +1,59 @@
+# ============================================================
+#  Deepfake Detection System — Central Configuration
+# ============================================================
+
+# ── Dataset ─────────────────────────────────────────────────
+data:
+  root_dir: "data"               # folder containing real/ and fake/
+  real_dir: "data/real"
+  fake_dir: "data/fake"
+  image_size: 224                # input resolution (px)
+  train_split: 0.70
+  val_split:   0.15
+  test_split:  0.15
+  random_seed: 42
+
+# ── Model ────────────────────────────────────────────────────
+model:
+  backbone: "efficientnet_b4"    # timm model name
+  pretrained: true
+  dropout: 0.4
+  freeze_epochs: 3               # freeze backbone for first N epochs
+
+# ── Training ─────────────────────────────────────────────────
+training:
+  epochs: 20
+  batch_size: 32
+  num_workers: 4
+  learning_rate: 1.0e-4
+  weight_decay: 1.0e-5
+  scheduler: "cosine"            # cosine | step | plateau
+  early_stopping_patience: 5
+  mixed_precision: true          # AMP (faster on GPU)
+  grad_clip: 1.0
+
+# ── Augmentation ─────────────────────────────────────────────
+augmentation:
+  horizontal_flip: 0.5
+  rotation_limit: 15
+  brightness_contrast: 0.2
+  blur_limit: 3
+  jpeg_quality: [70, 100]        # simulate compression artifacts
+  normalize_mean: [0.485, 0.456, 0.406]
+  normalize_std:  [0.229, 0.224, 0.225]
+
+# ── Paths ────────────────────────────────────────────────────
+paths:
+  checkpoint_dir: "checkpoints"
+  results_dir:    "results"
+  plots_dir:      "results/plots"
+  metrics_dir:    "results/metrics"
+  gradcam_dir:    "results/gradcam"
+  logs_dir:       "logs"
+  best_model:     "checkpoints/best_model.pth"
+
+# ── Evaluation ───────────────────────────────────────────────
+evaluation:
+  threshold: 0.5                 # decision threshold for binary classification
+  gradcam_samples: 16            # number of test images to visualize with Grad-CAM
+  gradcam_target_layer: "blocks[-1]"
