@@ -246,7 +246,7 @@ def plot_benchmark_comparison(our_metrics, save_dir):
     colors  = [PALETTE["gray"]] * (len(methods) - 1) + [PALETTE["teal"]]
 
     fig, axes = plt.subplots(1, 3, figsize=(16, 6))
-    fig.suptitle("Benchmark Comparison on FaceForensics++", fontsize=15, fontweight="bold")
+    fig.suptitle("Benchmark Comparison — Deepfake Detection", fontsize=15, fontweight="bold")
 
     metric_config = [
         ("auc",      "AUC-ROC",  True,  0.95),

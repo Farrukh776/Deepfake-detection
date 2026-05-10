@@ -11,8 +11,13 @@ venv/
 env/
 
 # Data (too large for git)
-data/real/
-data/fake/
+data/train/real/
+data/train/fake/
+data/val/real/
+data/val/fake/
+data/test/real/
+data/test/fake/
+raw/
 data/*.mp4
 data/*.avi
 
