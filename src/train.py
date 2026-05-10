@@ -34,18 +34,15 @@ from src.evaluate import compute_metrics, plot_training_curves
 # ── Loss function ────────────────────────────────────────────────────────────
 
 class FocalLoss(nn.Module):
-    """
-    Focal Loss — down-weights easy examples, focuses on hard ones.
-    Better than plain BCE for imbalanced deepfake datasets.
-    """
+    """Focal Loss using BCEWithLogitsLoss — AMP safe."""
     def __init__(self, alpha=0.8, gamma=2.0):
         super().__init__()
         self.alpha = alpha
         self.gamma = gamma
 
-    def forward(self, preds, targets):
-        bce = nn.functional.binary_cross_entropy(preds, targets, reduction="none")
-        pt = torch.exp(-bce)
+    def forward(self, logits, targets):
+        bce = nn.functional.binary_cross_entropy_with_logits(logits, targets, reduction="none")
+        pt  = torch.exp(-bce)
         focal = self.alpha * (1 - pt) ** self.gamma * bce
         return focal.mean()
 
@@ -65,8 +62,8 @@ def train_one_epoch(model, loader, optimizer, criterion, scaler, device, grad_cl
         optimizer.zero_grad(set_to_none=True)
 
         with autocast():
-            preds = model(images)
-            loss = criterion(preds, labels)
+            logits = model(images)
+            loss   = criterion(logits, labels)
 
         scaler.scale(loss).backward()
         scaler.unscale_(optimizer)
@@ -74,8 +71,9 @@ def train_one_epoch(model, loader, optimizer, criterion, scaler, device, grad_cl
         scaler.step(optimizer)
         scaler.update()
 
+        probs = torch.sigmoid(logits).detach().cpu().numpy()
         total_loss += loss.item()
-        all_preds.extend(preds.detach().cpu().numpy())
+        all_preds.extend(probs)
         all_labels.extend(labels.detach().cpu().numpy())
 
         pbar.set_postfix({"loss": f"{loss.item():.4f}"})
@@ -96,11 +94,12 @@ def validate(model, loader, criterion, device):
         labels = labels.to(device, non_blocking=True)
 
         with autocast():
-            preds = model(images)
-            loss = criterion(preds, labels)
+            logits = model(images)
+            loss   = criterion(logits, labels)
 
+        probs = torch.sigmoid(logits).cpu().numpy()
         total_loss += loss.item()
-        all_preds.extend(preds.cpu().numpy())
+        all_preds.extend(probs)
         all_labels.extend(labels.cpu().numpy())
 
     metrics = compute_metrics(all_labels, all_preds)

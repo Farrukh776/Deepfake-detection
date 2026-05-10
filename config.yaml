@@ -1,61 +1,55 @@
-# ============================================================
-#  Deepfake Detection System — Central Configuration
-# ============================================================
-
-# ── Dataset ─────────────────────────────────────────────────
+augmentation:
+  blur_limit: 3
+  brightness_contrast: 0.2
+  horizontal_flip: 0.5
+  jpeg_quality:
+  - 70
+  - 100
+  normalize_mean:
+  - 0.485
+  - 0.456
+  - 0.406
+  normalize_std:
+  - 0.229
+  - 0.224
+  - 0.225
+  rotation_limit: 15
 data:
-  root_dir: "data"
-  train_real: "data/train/real"
-  train_fake: "data/train/fake"
-  val_real:   "data/val/real"
-  val_fake:   "data/val/fake"
-  test_real:  "data/test/real"
-  test_fake:  "data/test/fake"
-  image_size: 128                
-  max_samples_per_class: 20000   # cap training data (pretrained model doesn't need more)
+  image_size: 128
+  max_samples_per_class: 15000
+  max_val_samples_per_class: 2000
   random_seed: 42
-
-# ── Model ────────────────────────────────────────────────────
+  root_dir: data
+  test_fake: data/test/fake
+  test_real: data/test/real
+  train_fake: data/train/fake
+  train_real: data/train/real
+  val_fake: data/val/fake
+  val_real: data/val/real
+evaluation:
+  gradcam_samples: 16
+  gradcam_target_layer: blocks[-1]
+  threshold: 0.5
 model:
-  backbone: "efficientnet_b0"
-  pretrained: true
+  backbone: efficientnet_b0
   dropout: 0.4
   freeze_epochs: 2
-
-# ── Training ─────────────────────────────────────────────────
-training:
-  epochs: 10                     # reduced from 15
-  batch_size: 64
-  num_workers: 2
-  learning_rate: 1.0e-4
-  weight_decay: 1.0e-5
-  scheduler: "cosine"
-  early_stopping_patience: 3     # reduced from 4
-  mixed_precision: true
-  grad_clip: 1.0
-
-# ── Augmentation ─────────────────────────────────────────────
-augmentation:
-  horizontal_flip: 0.5
-  rotation_limit: 15
-  brightness_contrast: 0.2
-  blur_limit: 3
-  jpeg_quality: [70, 100]
-  normalize_mean: [0.485, 0.456, 0.406]
-  normalize_std:  [0.229, 0.224, 0.225]
-
-# ── Paths ────────────────────────────────────────────────────
+  pretrained: true
 paths:
-  checkpoint_dir: "checkpoints"
-  results_dir:    "results"
-  plots_dir:      "results/plots"
-  metrics_dir:    "results/metrics"
-  gradcam_dir:    "results/gradcam"
-  logs_dir:       "logs"
-  best_model:     "checkpoints/best_model.pth"
-
-# ── Evaluation ───────────────────────────────────────────────
-evaluation:
-  threshold: 0.5
-  gradcam_samples: 16
-  gradcam_target_layer: "blocks[-1]"
+  best_model: checkpoints/best_model.pth
+  checkpoint_dir: checkpoints
+  gradcam_dir: results/gradcam
+  logs_dir: logs
+  metrics_dir: results/metrics
+  plots_dir: results/plots
+  results_dir: results
+training:
+  batch_size: 128
+  early_stopping_patience: 4
+  epochs: 15
+  grad_clip: 1.0
+  learning_rate: 0.0001
+  mixed_precision: true
+  num_workers: 4
+  scheduler: cosine
+  weight_decay: 1.0e-05

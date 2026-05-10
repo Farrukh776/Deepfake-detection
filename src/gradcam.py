@@ -83,7 +83,7 @@ def generate_gradcam(model, image_tensor, target_layers, use_cuda=False):
 
     # Get model prediction first
     with torch.no_grad():
-        score = model(image_tensor).item()
+        score = torch.sigmoid(model(image_tensor)).item()
 
     # GradCAM++ gives sharper, more localized heatmaps than vanilla GradCAM
     cam_algo = GradCAMPlusPlus(model=model, target_layers=target_layers)

@@ -246,7 +246,7 @@ def plot_benchmark_comparison(our_metrics, save_dir):
     colors  = [PALETTE["gray"]] * (len(methods) - 1) + [PALETTE["teal"]]
 
     fig, axes = plt.subplots(1, 3, figsize=(16, 6))
-    fig.suptitle("Benchmark Comparison — Deepfake Detection", fontsize=15, fontweight="bold")
+    fig.suptitle("Benchmark Comparison on FaceForensics++", fontsize=15, fontweight="bold")
 
     metric_config = [
         ("auc",      "AUC-ROC",  True,  0.95),
@@ -324,7 +324,7 @@ def full_evaluation(cfg, test_loader, device, checkpoint_path=None):
     for images, labels in tqdm(test_loader, desc="  Evaluating test set", ncols=90):
         images = images.to(device, non_blocking=True)
         with autocast():
-            scores = model(images)
+            scores = torch.sigmoid(model(images))
         all_scores.extend(scores.cpu().numpy())
         all_labels.extend(labels.numpy())
 

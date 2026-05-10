@@ -1,0 +1,7 @@
+Method,auc,accuracy,eer
+Face X-ray (2020),0.98,0.954,0.052
+Multi-Attentional (2021),0.993,0.976,0.033
+LipForensics (2021),0.997,,0.025
+RECCE (2022),0.991,0.979,0.03
+UniFace (2023),0.994,0.981,0.022
+Our Model (EfficientNet-B4),0.8244262954940151,0.7479138010087116,0.230982244665255

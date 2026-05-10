@@ -59,7 +59,7 @@ def predict_image(model, image_path, transform, device, threshold=0.5):
     img_rgb = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
     tensor  = transform(image=img_rgb)["image"].unsqueeze(0).to(device)
 
-    score      = model(tensor).item()
+    score      = torch.sigmoid(model(tensor)).item()
     prediction = "FAKE" if score >= threshold else "REAL"
     confidence = score if score >= threshold else 1 - score
 

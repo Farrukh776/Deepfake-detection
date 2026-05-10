@@ -106,9 +106,10 @@ def build_dataloaders(cfg, verbose=True):
         if cap:
             print(f"  Capping training at {cap:,} images per class")
 
-    train_paths, train_labels = load_split(d["train_real"], d["train_fake"], cap,  "Train")
-    val_paths,   val_labels   = load_split(d["val_real"],   d["val_fake"],   None, "Val")
-    test_paths,  test_labels  = load_split(d["test_real"],  d["test_fake"],  None, "Test")
+    val_cap  = d.get("max_val_samples_per_class", 2000)
+    train_paths, train_labels = load_split(d["train_real"], d["train_fake"], cap,     "Train")
+    val_paths,   val_labels   = load_split(d["val_real"],   d["val_fake"],   val_cap, "Val")
+    test_paths,  test_labels  = load_split(d["test_real"],  d["test_fake"],  None,    "Test")
 
     if not train_paths:
         raise ValueError("No training images found! Check data/train/real and data/train/fake.")

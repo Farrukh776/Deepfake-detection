@@ -5,7 +5,7 @@ Defines the DeepfakeDetector model using EfficientNet-B4 backbone
 with a custom binary classification head.
 
 Architecture:
-  EfficientNet-B4 (pretrained on ImageNet)
+  EfficientNet-B0 (pretrained on ImageNet)
     → Global Average Pooling
     → Dropout(0.4)
     → Linear(1792 → 512)
@@ -56,7 +56,6 @@ class DeepfakeDetector(nn.Module):
             nn.BatchNorm1d(512),
             nn.Dropout(p=0.3),
             nn.Linear(512, 1),
-            nn.Sigmoid()
         )
 
         # Initialize classifier weights
