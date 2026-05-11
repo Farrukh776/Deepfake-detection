@@ -1,0 +1,716 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>DeepScan — Deepfake Detector</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@400;600;800&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:        #080b10;
+      --surface:   #0e1420;
+      --border:    #1e2d45;
+      --accent:    #00e5ff;
+      --danger:    #ff3b5c;
+      --safe:      #00e5a0;
+      --muted:     #4a6080;
+      --text:      #c8ddf0;
+      --white:     #eaf4ff;
+      --glow-a:    rgba(0,229,255,0.18);
+      --glow-d:    rgba(255,59,92,0.18);
+    }
+
+    html, body {
+      height: 100%;
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Syne', sans-serif;
+      overflow-x: hidden;
+    }
+
+    /* ── Animated grid background ── */
+    body::before {
+      content: '';
+      position: fixed; inset: 0;
+      background-image:
+        linear-gradient(rgba(0,229,255,0.03) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(0,229,255,0.03) 1px, transparent 1px);
+      background-size: 48px 48px;
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    /* ── Glowing orbs ── */
+    .orb {
+      position: fixed;
+      border-radius: 50%;
+      filter: blur(90px);
+      pointer-events: none;
+      z-index: 0;
+      animation: float 8s ease-in-out infinite alternate;
+    }
+    .orb-1 { width:500px;height:500px;top:-120px;left:-120px;background:rgba(0,229,255,0.07); }
+    .orb-2 { width:400px;height:400px;bottom:-100px;right:-80px;background:rgba(255,59,92,0.07);animation-delay:-4s; }
+    @keyframes float { from{transform:translateY(0)} to{transform:translateY(30px)} }
+
+    /* ── Layout ── */
+    .page {
+      position: relative; z-index: 1;
+      min-height: 100vh;
+      display: flex; flex-direction: column;
+      align-items: center;
+      padding: 0 24px 64px;
+    }
+
+    /* ── Header ── */
+    header {
+      width: 100%; max-width: 900px;
+      padding: 40px 0 32px;
+      display: flex; justify-content: space-between; align-items: center;
+      border-bottom: 1px solid var(--border);
+    }
+    .logo {
+      display: flex; align-items: center; gap: 12px;
+    }
+    .logo-icon {
+      width: 36px; height: 36px;
+      border: 2px solid var(--accent);
+      border-radius: 8px;
+      display: flex; align-items: center; justify-content: center;
+      position: relative;
+      box-shadow: 0 0 16px var(--glow-a);
+    }
+    .logo-icon::before {
+      content: '';
+      width: 14px; height: 14px;
+      border-radius: 50%;
+      background: var(--accent);
+      box-shadow: 0 0 10px var(--accent);
+    }
+    .logo-text {
+      font-family: 'Space Mono', monospace;
+      font-size: 1.3rem; font-weight: 700;
+      color: var(--white);
+      letter-spacing: 0.04em;
+    }
+    .logo-text span { color: var(--accent); }
+    .badge {
+      font-family: 'Space Mono', monospace;
+      font-size: 0.65rem;
+      padding: 4px 10px;
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      color: var(--muted);
+      letter-spacing: 0.08em;
+    }
+
+    /* ── Hero ── */
+    .hero {
+      width: 100%; max-width: 900px;
+      padding: 56px 0 40px;
+      display: grid; grid-template-columns: 1fr 1fr; gap: 48px;
+      align-items: center;
+    }
+    .hero-left h1 {
+      font-size: clamp(2rem, 4vw, 3rem);
+      font-weight: 800;
+      color: var(--white);
+      line-height: 1.15;
+      letter-spacing: -0.02em;
+    }
+    .hero-left h1 em {
+      font-style: normal;
+      color: var(--accent);
+      position: relative;
+    }
+    .hero-left p {
+      margin-top: 16px;
+      font-size: 0.95rem;
+      color: var(--muted);
+      line-height: 1.7;
+    }
+    .hero-stats {
+      display: flex; gap: 20px; margin-top: 28px;
+    }
+    .stat {
+      text-align: center;
+    }
+    .stat-val {
+      font-family: 'Space Mono', monospace;
+      font-size: 1.4rem; font-weight: 700;
+      color: var(--accent);
+    }
+    .stat-lbl {
+      font-size: 0.65rem; color: var(--muted);
+      letter-spacing: 0.08em; text-transform: uppercase;
+      margin-top: 2px;
+    }
+
+    /* ── Drop zone ── */
+    .dropzone-wrap {
+      background: var(--surface);
+      border: 2px dashed var(--border);
+      border-radius: 16px;
+      padding: 32px 24px;
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      cursor: pointer;
+      transition: border-color 0.25s, box-shadow 0.25s, background 0.25s;
+      position: relative;
+      min-height: 260px;
+      text-align: center;
+    }
+    .dropzone-wrap:hover,
+    .dropzone-wrap.drag-over {
+      border-color: var(--accent);
+      box-shadow: 0 0 32px var(--glow-a);
+      background: rgba(0,229,255,0.04);
+    }
+    .dropzone-wrap input[type=file] {
+      position: absolute; inset: 0; opacity: 0; cursor: pointer;
+    }
+    .dz-icon {
+      width: 56px; height: 56px;
+      border-radius: 12px;
+      background: rgba(0,229,255,0.08);
+      border: 1px solid rgba(0,229,255,0.2);
+      display: flex; align-items: center; justify-content: center;
+      margin-bottom: 16px;
+      font-size: 1.6rem;
+    }
+    .dz-title {
+      font-weight: 600; font-size: 1rem; color: var(--white);
+      margin-bottom: 6px;
+    }
+    .dz-sub {
+      font-size: 0.78rem; color: var(--muted);
+    }
+    .dz-preview {
+      width: 100%; max-height: 200px; object-fit: contain;
+      border-radius: 10px; margin-top: 16px;
+      display: none;
+    }
+
+    /* ── Analyse button ── */
+    .btn-analyse {
+      width: 100%; max-width: 900px;
+      margin-top: 24px;
+      padding: 18px;
+      border: none; border-radius: 12px;
+      background: var(--accent);
+      color: #000;
+      font-family: 'Space Mono', monospace;
+      font-size: 0.95rem; font-weight: 700;
+      letter-spacing: 0.06em;
+      cursor: pointer;
+      transition: opacity 0.2s, box-shadow 0.2s, transform 0.15s;
+      box-shadow: 0 0 24px var(--glow-a);
+      display: none;
+    }
+    .btn-analyse:hover { opacity: 0.88; transform: translateY(-2px); }
+    .btn-analyse:active { transform: translateY(0); }
+    .btn-analyse:disabled {
+      opacity: 0.5; cursor: not-allowed; transform: none;
+    }
+
+    /* ── Loading bar ── */
+    .loading-bar-wrap {
+      width: 100%; max-width: 900px;
+      height: 3px;
+      background: var(--border);
+      border-radius: 4px;
+      margin-top: 12px;
+      display: none;
+      overflow: hidden;
+    }
+    .loading-bar {
+      height: 100%;
+      background: var(--accent);
+      border-radius: 4px;
+      animation: load 1.4s ease-in-out infinite;
+      width: 40%;
+    }
+    @keyframes load {
+      0%   { transform: translateX(-100%); }
+      100% { transform: translateX(350%); }
+    }
+
+    /* ── Result panel ── */
+    .result-panel {
+      width: 100%; max-width: 900px;
+      margin-top: 32px;
+      display: none;
+      animation: fadeUp 0.5s ease forwards;
+    }
+    @keyframes fadeUp {
+      from { opacity:0; transform:translateY(20px); }
+      to   { opacity:1; transform:translateY(0); }
+    }
+    .result-grid {
+      display: grid; grid-template-columns: 1fr 1fr; gap: 20px;
+    }
+
+    /* ── Verdict card ── */
+    .verdict-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 32px 28px;
+      position: relative;
+      overflow: hidden;
+      transition: border-color 0.3s, box-shadow 0.3s;
+    }
+    .verdict-card.fake {
+      border-color: var(--danger);
+      box-shadow: 0 0 40px var(--glow-d);
+    }
+    .verdict-card.real {
+      border-color: var(--safe);
+      box-shadow: 0 0 40px rgba(0,229,160,0.18);
+    }
+    .verdict-card::before {
+      content: '';
+      position: absolute; top: 0; left: 0; right: 0; height: 3px;
+    }
+    .verdict-card.fake::before  { background: var(--danger); }
+    .verdict-card.real::before  { background: var(--safe); }
+
+    .verdict-tag {
+      font-family: 'Space Mono', monospace;
+      font-size: 0.65rem; letter-spacing: 0.12em;
+      text-transform: uppercase; color: var(--muted);
+      margin-bottom: 12px;
+    }
+    .verdict-label {
+      font-size: 3rem; font-weight: 800;
+      line-height: 1;
+      letter-spacing: -0.02em;
+    }
+    .verdict-label.fake { color: var(--danger); }
+    .verdict-label.real { color: var(--safe); }
+
+    .verdict-conf {
+      margin-top: 20px;
+    }
+    .conf-label {
+      font-size: 0.72rem; color: var(--muted);
+      font-family: 'Space Mono', monospace;
+      letter-spacing: 0.06em; text-transform: uppercase;
+      margin-bottom: 8px;
+      display: flex; justify-content: space-between;
+    }
+    .conf-bar-bg {
+      height: 8px; background: var(--border); border-radius: 8px; overflow: hidden;
+    }
+    .conf-bar-fill {
+      height: 100%; border-radius: 8px;
+      transition: width 1s cubic-bezier(0.4,0,0.2,1);
+    }
+    .conf-bar-fill.fake { background: var(--danger); box-shadow: 0 0 12px var(--danger); }
+    .conf-bar-fill.real { background: var(--safe);   box-shadow: 0 0 12px var(--safe); }
+
+    .metrics-row {
+      display: grid; grid-template-columns: 1fr 1fr;
+      gap: 12px; margin-top: 20px;
+    }
+    .metric-box {
+      background: rgba(255,255,255,0.03);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 12px 14px;
+    }
+    .metric-box .lbl {
+      font-size: 0.65rem; color: var(--muted);
+      font-family: 'Space Mono', monospace; letter-spacing: 0.06em;
+      text-transform: uppercase;
+    }
+    .metric-box .val {
+      font-size: 1.1rem; font-weight: 700; color: var(--white);
+      margin-top: 4px; font-family: 'Space Mono', monospace;
+    }
+
+    /* ── GradCAM card ── */
+    .gradcam-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 24px;
+      display: flex; flex-direction: column;
+    }
+    .gradcam-card .card-title {
+      font-size: 0.7rem;
+      font-family: 'Space Mono', monospace;
+      letter-spacing: 0.1em; text-transform: uppercase;
+      color: var(--muted); margin-bottom: 16px;
+    }
+    .gradcam-images {
+      display: grid; grid-template-columns: 1fr 1fr; gap: 12px; flex: 1;
+    }
+    .img-wrap {
+      border-radius: 10px; overflow: hidden;
+      border: 1px solid var(--border);
+      position: relative;
+      aspect-ratio: 1 / 1;
+      background: #000;
+    }
+    .img-wrap img {
+      width: 100%; height: 100%; object-fit: contain; display: block;
+    }
+    .img-label {
+      position: absolute; bottom: 0; left: 0; right: 0;
+      background: rgba(8,11,16,0.8);
+      font-size: 0.6rem; font-family: 'Space Mono', monospace;
+      letter-spacing: 0.08em; text-transform: uppercase;
+      color: var(--muted); padding: 4px 8px;
+      text-align: center;
+    }
+    .gradcam-legend {
+      margin-top: 12px;
+      display: flex; align-items: center; gap: 10px;
+      font-size: 0.68rem; color: var(--muted);
+      font-family: 'Space Mono', monospace;
+    }
+    .legend-bar {
+      flex: 1; height: 6px; border-radius: 4px;
+      background: linear-gradient(to right, #0000ff, #00ff00, #ffff00, #ff0000);
+    }
+
+    /* ── Explanation box ── */
+    .explain-box {
+      width: 100%; max-width: 900px;
+      margin-top: 20px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 20px 24px;
+      font-size: 0.82rem; color: var(--muted); line-height: 1.7;
+    }
+    .explain-box strong { color: var(--text); }
+
+    /* ── Error ── */
+    .error-msg {
+      width: 100%; max-width: 900px;
+      margin-top: 20px;
+      padding: 16px 20px;
+      background: rgba(255,59,92,0.08);
+      border: 1px solid var(--danger);
+      border-radius: 10px;
+      font-size: 0.82rem; color: var(--danger);
+      display: none;
+    }
+
+    /* ── Footer ── */
+    footer {
+      width: 100%; max-width: 900px;
+      margin-top: 64px;
+      padding-top: 24px;
+      border-top: 1px solid var(--border);
+      display: flex; justify-content: space-between; align-items: center;
+    }
+    footer span {
+      font-size: 0.72rem; color: var(--muted);
+      font-family: 'Space Mono', monospace;
+    }
+    .api-status {
+      display: flex; align-items: center; gap: 8px;
+      font-size: 0.72rem; font-family: 'Space Mono', monospace; color: var(--muted);
+    }
+    .status-dot {
+      width: 8px; height: 8px; border-radius: 50%;
+      background: var(--muted);
+      transition: background 0.4s;
+    }
+    .status-dot.online  { background: var(--safe);   box-shadow: 0 0 8px var(--safe); }
+    .status-dot.offline { background: var(--danger);  box-shadow: 0 0 8px var(--danger); }
+
+    /* ── Responsive ── */
+    @media (max-width: 680px) {
+      .hero { grid-template-columns: 1fr; gap: 24px; padding: 36px 0 24px; }
+      .result-grid { grid-template-columns: 1fr; }
+      .gradcam-images { grid-template-columns: 1fr 1fr; }
+    }
+  </style>
+</head>
+<body>
+<div class="orb orb-1"></div>
+<div class="orb orb-2"></div>
+
+<div class="page">
+
+  <!-- Header -->
+  <header>
+    <div class="logo">
+      <div class="logo-icon"></div>
+      <span class="logo-text">Deep<span>Scan</span></span>
+    </div>
+    <span class="badge">EfficientNet-B0 · Grad-CAM++</span>
+  </header>
+
+  <!-- Hero -->
+  <div class="hero">
+    <div class="hero-left">
+      <h1>Detect <em>deepfakes</em><br/>in seconds.</h1>
+      <p>Upload any facial image. Our EfficientNet-B0 model analyses it and shows you exactly which regions triggered the decision — powered by Grad-CAM++ explainability.</p>
+      <div class="hero-stats">
+        <div class="stat">
+          <div class="stat-val">82.4%</div>
+          <div class="stat-lbl">AUC-ROC</div>
+        </div>
+        <div class="stat">
+          <div class="stat-val">86%</div>
+          <div class="stat-lbl">Fake Recall</div>
+        </div>
+        <div class="stat">
+          <div class="stat-val">10.9K</div>
+          <div class="stat-lbl">Test Images</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Drop zone -->
+    <label class="dropzone-wrap" id="dropzone">
+      <input type="file" id="fileInput" accept="image/jpeg,image/png,image/webp"/>
+      <div class="dz-icon">🔍</div>
+      <div class="dz-title">Drop a face image here</div>
+      <div class="dz-sub">JPEG · PNG · WEBP — max 10 MB</div>
+      <img id="previewImg" class="dz-preview" alt="Preview"/>
+    </label>
+  </div>
+
+  <!-- Analyse button -->
+  <button class="btn-analyse" id="analyseBtn" onclick="analyse()">
+    ⬡ &nbsp; ANALYSE IMAGE
+  </button>
+
+  <!-- Loading bar -->
+  <div class="loading-bar-wrap" id="loadingBar">
+    <div class="loading-bar"></div>
+  </div>
+
+  <!-- Error -->
+  <div class="error-msg" id="errorMsg"></div>
+
+  <!-- Result -->
+  <div class="result-panel" id="resultPanel">
+    <div class="result-grid">
+
+      <!-- Verdict -->
+      <div class="verdict-card" id="verdictCard">
+        <div class="verdict-tag">// verdict</div>
+        <div class="verdict-label" id="verdictLabel">—</div>
+
+        <div class="verdict-conf">
+          <div class="conf-label">
+            <span>Fake Probability</span>
+            <span id="confPct">—</span>
+          </div>
+          <div class="conf-bar-bg">
+            <div class="conf-bar-fill" id="confBar" style="width:0%"></div>
+          </div>
+        </div>
+
+        <div class="metrics-row">
+          <div class="metric-box">
+            <div class="lbl">Model</div>
+            <div class="val">EffNet-B0</div>
+          </div>
+          <div class="metric-box">
+            <div class="lbl">Input</div>
+            <div class="val">128×128</div>
+          </div>
+          <div class="metric-box">
+            <div class="lbl">XAI Method</div>
+            <div class="val">GradCAM++</div>
+          </div>
+          <div class="metric-box">
+            <div class="lbl">Threshold</div>
+            <div class="val">0.50</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Grad-CAM -->
+      <div class="gradcam-card">
+        <div class="card-title">// Grad-CAM++ attention heatmap</div>
+        <div class="gradcam-images">
+          <div class="img-wrap">
+            <img id="origImg" src="" alt="Original"/>
+            <div class="img-label">Original</div>
+          </div>
+          <div class="img-wrap">
+            <img id="camImg" src="" alt="Grad-CAM++"/>
+            <div class="img-label">Attention</div>
+          </div>
+        </div>
+        <div class="gradcam-legend">
+          <span>Low</span>
+          <div class="legend-bar"></div>
+          <span>High attention</span>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- Explanation -->
+    <div class="explain-box" id="explainBox"></div>
+  </div>
+
+  <!-- Footer -->
+  <footer>
+    <span>FAST-NUCES Karachi · Deep Learning for Perception · 2024</span>
+    <div class="api-status">
+      <div class="status-dot" id="statusDot"></div>
+      <span id="statusText">checking api…</span>
+    </div>
+  </footer>
+
+</div>
+
+<script>
+  // ── Config ──────────────────────────────────────────────────────────────────
+  const API_URL = "http://127.0.0.1:8000";   // change if you deploy remotely
+
+  // ── State ───────────────────────────────────────────────────────────────────
+  let selectedFile = null;
+
+  // ── API health check ────────────────────────────────────────────────────────
+  async function checkHealth() {
+    const dot  = document.getElementById("statusDot");
+    const text = document.getElementById("statusText");
+    try {
+      const r = await fetch(`${API_URL}/health`, { signal: AbortSignal.timeout(3000) });
+      if (r.ok) {
+        dot.className  = "status-dot online";
+        text.textContent = "api online";
+      } else { throw new Error(); }
+    } catch {
+      dot.className  = "status-dot offline";
+      text.textContent = "api offline";
+    }
+  }
+  checkHealth();
+  setInterval(checkHealth, 15000);
+
+  // ── File selection ──────────────────────────────────────────────────────────
+  const fileInput  = document.getElementById("fileInput");
+  const dropzone   = document.getElementById("dropzone");
+  const previewImg = document.getElementById("previewImg");
+  const analyseBtn = document.getElementById("analyseBtn");
+
+  fileInput.addEventListener("change", () => handleFile(fileInput.files[0]));
+
+  dropzone.addEventListener("dragover",  e => { e.preventDefault(); dropzone.classList.add("drag-over"); });
+  dropzone.addEventListener("dragleave", ()=> dropzone.classList.remove("drag-over"));
+  dropzone.addEventListener("drop", e => {
+    e.preventDefault();
+    dropzone.classList.remove("drag-over");
+    handleFile(e.dataTransfer.files[0]);
+  });
+
+  function handleFile(file) {
+    if (!file) return;
+    if (!file.type.match(/image\/(jpeg|png|webp)/)) {
+      showError("Please upload a JPEG, PNG, or WEBP image.");
+      return;
+    }
+    selectedFile = file;
+    const reader = new FileReader();
+    reader.onload = e => {
+      previewImg.src   = e.target.result;
+      previewImg.style.display = "block";
+      dropzone.querySelector(".dz-icon").style.display   = "none";
+      dropzone.querySelector(".dz-title").style.display  = "none";
+      dropzone.querySelector(".dz-sub").style.display    = "none";
+    };
+    reader.readAsDataURL(file);
+    analyseBtn.style.display = "block";
+    hideError();
+    document.getElementById("resultPanel").style.display = "none";
+  }
+
+  // ── Analyse ─────────────────────────────────────────────────────────────────
+  async function analyse() {
+    if (!selectedFile) return;
+
+    analyseBtn.disabled = true;
+    document.getElementById("loadingBar").style.display = "block";
+    document.getElementById("resultPanel").style.display = "none";
+    hideError();
+
+    const form = new FormData();
+    form.append("file", selectedFile);
+
+    try {
+      const res = await fetch(`${API_URL}/predict`, { method: "POST", body: form });
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.detail || `HTTP ${res.status}`);
+      }
+      const data = await res.json();
+      renderResult(data);
+    } catch (e) {
+      showError(`Error: ${e.message}. Make sure the API server is running.`);
+    } finally {
+      analyseBtn.disabled = false;
+      document.getElementById("loadingBar").style.display = "none";
+    }
+  }
+
+  // ── Render result ────────────────────────────────────────────────────────────
+  function renderResult(data) {
+    const { label, confidence, gradcam_b64 } = data;
+    const isFake = label === "FAKE";
+    const pct    = Math.round(confidence * 100);
+
+    // Verdict card
+    const card = document.getElementById("verdictCard");
+    card.className = `verdict-card ${isFake ? "fake" : "real"}`;
+
+    const lbl = document.getElementById("verdictLabel");
+    lbl.textContent = label;
+    lbl.className   = `verdict-label ${isFake ? "fake" : "real"}`;
+
+    // Confidence bar (animate next tick)
+    document.getElementById("confPct").textContent = `${pct}%`;
+    const bar = document.getElementById("confBar");
+    bar.className = `conf-bar-fill ${isFake ? "fake" : "real"}`;
+    setTimeout(() => bar.style.width = `${pct}%`, 50);
+
+    // Images
+    document.getElementById("origImg").src = URL.createObjectURL(selectedFile);
+    document.getElementById("camImg").src  = `data:image/jpeg;base64,${gradcam_b64}`;
+
+    // Explanation text
+    const explain = document.getElementById("explainBox");
+    if (isFake) {
+      explain.innerHTML = `
+        <strong>Why FAKE?</strong> The model assigned a ${pct}% fake probability.
+        The Grad-CAM++ heatmap highlights regions with suspicious texture discontinuities —
+        typically around <strong>face boundaries, eyes, and blending edges</strong> — which are
+        common artifacts left by GAN-based synthesis and autoencoder face-swapping.
+        High attention (red/yellow zones) on these regions strongly influences the FAKE verdict.`;
+    } else {
+      explain.innerHTML = `
+        <strong>Why REAL?</strong> The model assigned only a ${pct}% fake probability.
+        Attention is distributed naturally across facial features without sharp boundary artifacts.
+        Lighting gradients, skin texture, and edge coherence are consistent with a genuine,
+        unmanipulated photograph. The model is <strong>${100 - pct}% confident</strong> this is a real face.`;
+    }
+
+    document.getElementById("resultPanel").style.display = "block";
+  }
+
+  // ── Error helpers ────────────────────────────────────────────────────────────
+  function showError(msg) {
+    const el = document.getElementById("errorMsg");
+    el.textContent = msg;
+    el.style.display = "block";
+  }
+  function hideError() {
+    document.getElementById("errorMsg").style.display = "none";
+  }
+</script>
+</body>
+</html>
