@@ -46,7 +46,7 @@ class DeepfakeDetector(nn.Module):
         )
 
         # Get the number of features coming out of the backbone
-        n_features = self.backbone.num_features  # 1792 for EfficientNet-B4
+        n_features = self.backbone.num_features  # 1792 for EfficientNet-B0
 
         # Custom classification head
         self.classifier = nn.Sequential(
